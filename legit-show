@@ -1,0 +1,59 @@
+#!/bin/dash
+
+if [ -d ".legit" ]
+then
+   if [ -s ".legit/commits/logfile" ]
+   then
+      if [ $# -ne 1 ]
+      then
+         echo "usage: legit-show <commit>:<filename>"
+      else
+         strcmp=`echo "$1" | egrep ":"`
+         if [ "$1" = "$strcmp" ]
+         then
+            commit=`echo "$1" | cut -d ':' -f 1`
+            file=`echo "$1" | sed 's/[^:]*://'`
+            if [ "$commit" = "" ]
+            then
+               #search in index
+               if [ -f ".legit/index/$file" ]
+               then
+                  cat ".legit/index/$file"
+               else
+                  valid_file_check=`echo "$file" | egrep "^[a-zA-Z0-9]" | egrep -v "[^a-zA-Z0-9._\-]"`
+                  if [ "$file" = "$valid_file_check" ]
+                  then
+                     echo "legit-show: error: '$file' not found in index"
+                  else
+                     echo "legit-show: error: invalid filename '$file'" 
+                  fi
+               fi
+            else
+               if [ -d ".legit/commits/$commit" ] 
+               then
+                  if [ -f ".legit/commits/$commit/$file" ]
+                  then
+                     cat ".legit/commits/$commit/$file"
+                  else
+                     valid_file_check=`echo "$file" | egrep "^[a-zA-Z0-9]" | egrep -v "[^a-zA-Z0-9._\-]"`
+                     if [ "$file" = "$valid_file_check" ]
+                     then
+                        echo "legit-show: error: '$file' not found in commit $commit"
+                     else
+                        echo "legit-show: error: invalid filename '$file'"
+                     fi
+                  fi
+               else
+                  echo "legit-show: error: unknown commit '$commit'"
+               fi
+            fi
+         else
+            echo "legit-show: error: invalid object $1"
+         fi
+      fi
+   else
+      echo "legit-show: error: your repository does not have any commits yet"
+   fi
+else
+   echo "legit-show: error: no .legit directory containing legit repository exists"
+fi

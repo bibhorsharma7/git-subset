@@ -1,0 +1,76 @@
+#!/bin/dash
+
+if ! [ -d ".legit" ]
+then
+   echo "legit-commit: error: no .legit directory containing legit repository exists"
+   exit
+fi
+
+if [ "$1" = "-a" ]
+then
+   if [ $# -ne 3 ]
+   then
+      echo "usage: legit-commit [-a] -m commit-message"
+      exit
+   fi
+   for files in `ls ".legit/index/"`
+   do
+      cp "$files" ".legit/index/$files"
+   done
+   shift
+fi
+
+if [ $# -eq 2 ] && [ $1 = "-m" ]
+then
+   check=`ls ".legit/index/"`
+   pre_commit=`cat ".legit/commits/logfile" | tail -1 | cut -d ' ' -f 1`
+   if [ "$check" = "" ] && [ "$pre_commit" = "" ]
+   then
+      to_commit=0
+   else
+      to_commit=0
+      if [ "$pre_commit" = "" ]
+      then
+         commit_n=0
+      else
+         # if there is any files not in index but in previous commit then it should commit
+         for file in `ls ".legit/commits/$pre_commit"`
+         do
+            if ! [ -f ".legit/index/$file" ]
+            then
+               to_commit=1
+            fi
+         done
+         commit_n=$((pre_commit+1))
+      fi
+      #echo "commit number = $commit_n"
+      
+      for file in `ls ".legit/index/"`
+      do
+         if [ -d ".legit/commits/$pre_commit" ] && [ -f ".legit/commits/$pre_commit/$file" ]
+         then
+            check=`diff ".legit/index/$file" ".legit/commits/$pre_commit/$file"`
+         else
+            check="no file in commits"
+         fi
+         if ! [ "$check" = "" ]
+         then
+            to_commit=1
+         fi
+      done
+   fi
+   if [ $to_commit -ne 1 ]
+   then
+      echo "nothing to commit"
+   else
+      mkdir ".legit/commits/$commit_n"
+      for f in `ls ".legit/index/"`
+      do
+         cp ".legit/index/$f" ".legit/commits/$commit_n/$f"
+      done
+      echo "$commit_n $2" >> ".legit/commits/logfile"            
+      echo "Committed as commit $commit_n"
+   fi
+else
+   echo "usage: legit-commit [-a] -m commit-message"
+fi

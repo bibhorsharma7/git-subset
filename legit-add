@@ -1,0 +1,38 @@
+#!/bin/dash
+
+if [ -d ".legit" ]
+then
+   if [ $# -gt 0 ]
+   then
+      for file in "$@"
+      do
+         cmp=`echo "$file" | egrep "^[a-zA-Z0-9]" | egrep -v "[^a-zA-Z0-9._\-]"`
+         if ! [ "$file" = "$cmp" ]
+         then
+            echo "legit-add: error: invalid filename '$file'"
+         else
+            if [ -e "$file" ]
+            then
+               if [ -f "$file" ]
+               then
+                  cp $file ".legit/index/$file"
+               else
+                  echo "legit-add: error: '$file' is not a regular file"
+               fi
+            else
+               if ! [ -f ".legit/index/$file" ]
+               then
+                  echo "legit-add: error: can not open '$file'"
+               else
+                  last_c=`cat ".legit/commits/logfile" | tail -1 | cut -d ' ' -f 1`
+                  rm ".legit/commits/$last_c/$file"
+               fi
+            fi
+         fi
+      done
+   else
+      echo "usage: legit-add <filenames>"
+   fi
+else
+   echo "legit-add: error: no .legit directory containing legit repository exists"
+fi

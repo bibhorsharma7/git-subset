@@ -1,0 +1,91 @@
+#!/bin/dash
+
+if ! [ -d ".legit" ]
+then
+   echo "legit-status: error: no .legit directory containing legit repository exists"
+   exit
+fi
+if ! [ -s ".legit/commits/logfile" ]
+then
+   echo "legit-status: error: your repository does not have any commits yet"
+   exit
+fi
+
+last_commit=`cat ".legit/commits/logfile" | tail -1 | cut -d ' ' -f 1`
+
+# getting all files (from current dir, index and all commits)
+touch ".legit/filelist.tmp"
+for file in `ls` `ls ".legit/index/"` `ls .legit/commits/*/`
+do
+   is_dir=`echo "$file" | egrep "/"`
+   if [ "$is_dir" = ""  ]
+   then
+      ch=`egrep "^$file$" ".legit/filelist.tmp"`
+      if [ "$ch" = "" ]
+      then
+         echo "$file" >> ".legit/filelist.tmp"
+      fi
+   fi
+done
+cat ".legit/filelist.tmp" | sort > ".legit/sortedfiles"
+rm ".legit/filelist.tmp"
+
+#cat ".legit/filelist.tmp"
+
+for file in `cat ".legit/sortedfiles"`
+do
+   if [ -f ".legit/commits/$last_commit/$file" ]
+   then
+      if [ -f "$file" ]
+      then
+         if [ -f ".legit/index/$file" ]
+         then
+            # in commit | in index | in dir
+            dif_cm_in=`diff ".legit/commits/$last_commit/$file" ".legit/index/$file"`
+            dif_in_dr=`diff ".legit/index/$file" "$file"`
+            
+            if [ "$dif_cm_in" = "" ]
+            then
+               if [ "$dif_in_dr" = "" ]
+               then
+                  echo "$file - same as repo"
+               else
+                  echo "$file - file changed, changes not staged for commit"
+               fi
+            else
+               if [ "$dif_in_dr" = "" ]
+               then
+                  echo "$file - file changed, changes staged for commit"
+               else
+                  echo "$file - file changed, different changes staged for commit"
+               fi
+            fi
+         else
+            echo "$file - untracked"
+         fi
+      else
+         if [ -f ".legit/index/$file" ]
+         then
+            # in commit | in index | not in dir
+            echo "$file - file deleted"
+         else
+            echo "$file - deleted"
+         fi
+      fi
+   else
+      if [ -f "$file" ]
+      then
+         if ! [ -f ".legit/index/$file" ]
+         then
+            echo "$file - untracked"
+         else
+            echo "$file - added to index"
+         fi
+      else
+         if [ -f ".legit/index/$file" ]
+         then
+            echo "$file - file deleted"
+         fi
+      fi
+   fi
+done

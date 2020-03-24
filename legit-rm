@@ -1,0 +1,105 @@
+#!/bin/dash
+
+cached=0
+force=0
+exit_flag=0
+for arg in $@
+do
+	if [ $arg = "--cached" ]
+	then
+		cached=1
+	elif [ $arg = "--force" ]
+	then
+		force=1
+	fi	
+done
+
+if [ $cached -eq 1 -o $force -eq 1 ]
+then
+	for arg in $@
+	do
+		res=`echo "$arg" | egrep -v "\--.*"`
+		if ! [ -z $res ]
+		then
+			if ! [ -f .legit/index/$arg ]
+         then
+            echo "legit-rm: error: '$arg' is not in the legit repository"
+            exit
+         fi
+			if [ $cached -eq 1 -a $force -eq 1 ]
+			then	
+				rm ".legit/index/$arg"
+				exit_flag=1	
+			elif [ $force -eq 1 ]
+			then	
+				rm ".legit/index/$arg"
+				rm "$arg"
+				exit_flag=1
+			fi		
+		fi	
+	done
+fi
+
+if [ $exit_flag -eq 1 ]
+then
+   exit
+fi
+
+check_exit=0
+for file in $@
+do
+	 res=`echo "$file" | egrep -v "\--.*"`
+	 check=''
+	 check1=''
+	 add_not_commit=0
+    if ! [ -z $res ]
+    then
+      if ! [ -f .legit/index/$file ]
+      then
+         echo "legit-rm: error: '$file' is not in the legit repository"
+         check_exit=1
+         continue
+      fi
+		check=`diff ".legit/index/$file" "$file"`
+		last_commit=`cat ".legit/commits/logfile" | cut -d ' ' -f 1 | tail -1`
+		if [ -f ".legit/commits/$last_commit/$file" ]
+		then
+			check1=`diff ".legit/index/$file" ".legit/commits/$last_commit/$file"`
+		elif [ "$check" = "" ] && ! [ -f ".legit/commits/$last_commit/$file" ]
+		then
+			add_not_commit=1
+		fi
+	else
+		continue
+	fi
+	if ! [ "$check" = "" ] && ! [ "$check1" = "" ]
+	then	
+		echo "legit-rm: error: '$file' in index is different to both working file and repository"
+		check_exit=1
+	elif ! [ "$check" = "" ]
+	then		
+		if [ $cached -eq 1 ]
+		then	
+			rm ".legit/index/$file"
+		else
+			echo "legit-rm: error: '$file' in repository is different to working file"
+		fi
+		check_exit=1
+	elif [ "$check" = "" -a ! "$check1" = "" ] || [ $add_not_commit -eq 1 ]
+	then
+		if [ $cached -eq 1 ]
+        	then
+            rm ".legit/index/$file"
+        	else
+			echo "legit-rm: error: '$file' has changes staged in the index"
+		fi
+		check_exit=1
+	elif ! [ -z $res ] && [ $cached -eq 1 ]
+	then
+		rm ".legit/index/$file"
+	elif ! [ -z $res ] 
+	then
+		rm "$file"
+      rm ".legit/index/$file"
+	fi
+done
